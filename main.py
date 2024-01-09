@@ -7,12 +7,48 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidgetItem, QHeader
 DB_NAME = "coffee.db"
 
 
+class AddWidget(QMainWindow):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        uic.loadUi('addEditCoffeeForm.ui', self)
+        self.con = sqlite3.connect(DB_NAME)
+        self.pushButton.clicked.connect(self.add_elem)
+        self.__is_adding_successful = False
+
+    def add_elem(self):
+        cur = self.con.cursor()
+        try:
+            id = cur.execute("SELECT max(id) FROM coffee").fetchone()[0] + 1
+            name = self.Name.toPlainText()
+            taste = self.Taste.toPlainText()
+            price = self.Price.toPlainText()
+
+            if len(name) * len(taste) * len(price) == 0:
+                raise ValueError('some lenght == 0')
+
+            new_data = (id, name, taste, price)
+            cur.execute("INSERT INTO coffee VALUES (?,?,?,?)", new_data)
+            self.__is_adding_successful = True
+        except ValueError as ve:
+            self.__is_adding_successful = False
+            self.errors.setText("Неверно заполнена форма")
+        else:
+            self.con.commit()
+            self.parent().update_result()
+            self.close()
+
+    def get_adding_verdict(self):
+        return self.__is_adding_successful
+
+
 class MyWidget(QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi('main_window_ui.ui', self)
+        uic.loadUi('MainWindow.ui', self)
         self.con = sqlite3.connect(DB_NAME)
         self.update_result()
+        self.pushButton.clicked.connect(self.adding)
+        self.add_form = None
 
     def update_result(self):
         cur = self.con.cursor()
@@ -35,6 +71,10 @@ class MyWidget(QMainWindow):
         for i, elem in enumerate(result):
             for j, val in enumerate(elem):
                 self.tableWidget.setItem(i, j, QTableWidgetItem(str(val)))
+
+    def adding(self):
+        self.add_form = AddWidget(self)
+        self.add_form.show()
 
 
 def except_hook(cls, exception, traceback):
